@@ -1,15 +1,19 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
+from .models import CustomUser  # Import your custom user model
 
 # Helper function to check if the user is an admin
 def is_admin(user):
     return user.role == 'ADMIN'
 
-# Admin-only view
-@login_required
-@user_passes_test(is_admin)
 def admin_only_view(request):
-    return render(request, 'dashboard/admin_page.html')
+    # Admin Dashboard content
+    users = CustomUser.objects.all()
+    user_count = users.count()
+    return render(request, 'dashboard/admin-dashboard.html', {
+        'users': users,
+        'user_count': user_count,
+    })
 
 # Helper function to check if the user is a property manager
 def is_property_manager(user):
@@ -34,6 +38,37 @@ def is_handyman(user):
 @user_passes_test(is_handyman)
 def handyman_view(request):
     return render(request, 'dashboard/handyman_page.html')
+
+def edit_user(request, user_id):
+    user = get_object_or_404(CustomUser, id=user_id)
+    if request.method == 'POST':
+        form = UserEditForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            return redirect('admin_dashboard')
+    else:
+        form = UserEditForm(instance=user)
+    return render(request, 'admin/edit_user.html', {'form': form})
+
+@login_required
+@user_passes_test(is_admin)
+def delete_user(request, user_id):
+    user = get_object_or_404(CustomUser, id=user_id)
+    user.delete()
+    return redirect('admin_dashboard')
+
+@login_required
+@user_passes_test(is_admin)
+def admin_dashboard(request):
+    users = CustomUser.objects.all()
+    user_count = users.count()  # Total users
+    active_users = users.filter(is_active=True).count()  # Active users
+    recent_users = CustomUser.objects.order_by('-date_joined')[:5]  # Recent sign-ups
+    return render(request, 'dashboard/admin-dashboard.html', {
+        'user_count': user_count,
+        'active_users': active_users,
+        'recent_users': recent_users,
+    })
 
 # Role-based redirect view
 @login_required
